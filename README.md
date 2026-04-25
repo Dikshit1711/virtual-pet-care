@@ -10,14 +10,6 @@
 
 ---
 
-## 📸 Screenshots
-
-| Login Page | Dashboard | Book Vet |
-|---|---|---|
-| Glassmorphism auth UI | Stats, reminders & vet booking | Search & book nearby vets |
-
----
-
 ## ✨ Features
 
 - 🔐 **JWT Authentication** — Secure register & login with bcrypt password hashing
