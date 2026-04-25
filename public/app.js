@@ -1,5 +1,5 @@
 // ── Config & State ─────────────────────────────────────────────────────────
-const API = 'http://localhost:3000';
+const API = window.location.origin; // Auto-detects localhost or Vercel URL
 let token       = localStorage.getItem('token') || null;
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 let allPets     = [];

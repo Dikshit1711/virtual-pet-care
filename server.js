@@ -1,11 +1,10 @@
 require('dotenv').config();
-const express  = require('express');
-const mongoose = require('mongoose');
-const bcrypt   = require('bcryptjs');
-const jwt      = require('jsonwebtoken');
-const nodemailer= require('nodemailer');
-const cron     = require('node-cron');
-const path     = require('path');
+const express   = require('express');
+const mongoose  = require('mongoose');
+const bcrypt    = require('bcryptjs');
+const jwt       = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const path      = require('path');
 
 const app = express();
 
@@ -31,7 +30,7 @@ const User = mongoose.model('User', new mongoose.Schema({
   email:     { type: String, required: true, unique: true },
   password:  { type: String, required: true },
   phone:     { type: String, default: '' },
-  createdAt: { type: Date,   default: Date.now }
+  createdAt: { type: Date, default: Date.now }
 }));
 
 const Pet = mongoose.model('Pet', new mongoose.Schema({
@@ -47,7 +46,6 @@ const Pet = mongoose.model('Pet', new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }));
 
-// ─── Standalone Reminder collection (visible in MongoDB Compass) ───────────────
 const Reminder = mongoose.model('Reminder', new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   petId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Pet',  required: true },
@@ -57,8 +55,8 @@ const Reminder = mongoose.model('Reminder', new mongoose.Schema({
   time:      { type: String, required: true },
   days:      { type: [String], default: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] },
   enabled:   { type: Boolean, default: true },
-  lastFired: { type: Date,    default: null },
-  createdAt: { type: Date,    default: Date.now }
+  lastFired: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
 }));
 
 // ─── Auth Middleware ───────────────────────────────────────────────────────────
@@ -69,7 +67,7 @@ const auth = (req, res, next) => {
   catch { res.status(401).json({ error: 'Invalid token' }); }
 };
 
-// ─── Email (non-blocking) ─────────────────────────────────────────────────────
+// ─── Email ─────────────────────────────────────────────────────────────────────
 function sendEmail(to, subject, html) {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
     return console.log(`📧 [SKIPPED] ${subject}`);
@@ -81,7 +79,7 @@ function sendEmail(to, subject, html) {
     .catch(e => console.log(`📧 Email failed: ${e.message}`));
 }
 
-// ─── SMS via Twilio Messaging Service (non-blocking) ─────────────────────────
+// ─── SMS ───────────────────────────────────────────────────────────────────────
 function sendSMS(phone, message) {
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !phone)
     return console.log(`📱 [SKIPPED] ${message}`);
@@ -96,7 +94,7 @@ function sendSMS(phone, message) {
   } catch(e) { console.log(`📱 Twilio error: ${e.message}`); }
 }
 
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
+// ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
@@ -106,7 +104,7 @@ app.post('/api/register', async (req, res) => {
     const user = await User.create({ name, email, password: hashed, phone: phone || '' });
     const token = jwt.sign({ id: user._id, name, email }, process.env.JWT_SECRET || 'petsecret', { expiresIn: '30d' });
     res.json({ token, user: { id: user._id, name, email, phone: user.phone } });
-    sendEmail(email, '🐾 Welcome to PawCare!', `<div style="font-family:sans-serif;padding:24px;background:#fff8f0;border-radius:12px"><h2 style="color:#6366f1">Hi ${name}! 🐾</h2><p>Your PawCare account is ready. Register your pets and set daily reminders.</p></div>`);
+    sendEmail(email, '🐾 Welcome to PawCare!', `<div style="font-family:sans-serif;padding:24px;background:#f0f4ff;border-radius:12px"><h2 style="color:#6366f1">Hi ${name}! 🐾</h2><p>Your PawCare account is ready.</p></div>`);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -122,7 +120,7 @@ app.post('/api/login', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── PETS ─────────────────────────────────────────────────────────────────────
+// ─── PET ROUTES ───────────────────────────────────────────────────────────────
 app.get('/api/pets', auth, async (req, res) => {
   try { res.json(await Pet.find({ userId: req.user.id }).sort({ createdAt: -1 })); }
   catch(e) { res.status(500).json({ error: e.message }); }
@@ -135,7 +133,7 @@ app.post('/api/pets', auth, async (req, res) => {
     const pet = await Pet.create({ userId: req.user.id, name, type, breed: breed||'', dob: dob||'', reminders: [] });
     res.json(pet);
     const user = await User.findById(req.user.id);
-    sendEmail(user.email, `🐾 ${name} registered!`, `<div style="font-family:sans-serif;padding:24px;background:#fff8f0;border-radius:12px"><h2 style="color:#6366f1">${name} is registered! 🎉</h2><p>Type: ${type} | Breed: ${breed||'N/A'}</p></div>`);
+    sendEmail(user.email, `🐾 ${name} registered!`, `<div style="font-family:sans-serif;padding:24px"><h2 style="color:#6366f1">${name} registered! 🎉</h2><p>Type: ${type}</p></div>`);
     sendSMS(user.phone, `🐾 PawCare: ${name} (${type}) has been registered!`);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -148,7 +146,7 @@ app.delete('/api/pets/:id', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── REMINDERS (saves to BOTH Pet subdoc AND standalone Reminder collection) ──
+// ─── REMINDER ROUTES ──────────────────────────────────────────────────────────
 app.get('/api/reminders', auth, async (req, res) => {
   try { res.json(await Reminder.find({ userId: req.user.id }).sort({ createdAt: -1 })); }
   catch(e) { res.status(500).json({ error: e.message }); }
@@ -160,16 +158,9 @@ app.post('/api/pets/:id/reminders', auth, async (req, res) => {
     const reminderDays = days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     const pet = await Pet.findOne({ _id: req.params.id, userId: req.user.id });
     if (!pet) return res.status(404).json({ error: 'Pet not found' });
-    // 1️⃣ Save inside Pet subdoc (existing)
     pet.reminders.push({ label, time, days: reminderDays, enabled: true });
     await pet.save();
-    // 2️⃣ Save as standalone document in Reminder collection (shows in Compass)
-    await Reminder.create({
-      userId: req.user.id, petId: pet._id,
-      petName: pet.name, petType: pet.type,
-      label, time, days: reminderDays, enabled: true
-    });
-    console.log(`✅ Reminder saved to MongoDB: ${pet.name} - ${label} at ${time}`);
+    await Reminder.create({ userId: req.user.id, petId: pet._id, petName: pet.name, petType: pet.type, label, time, days: reminderDays, enabled: true });
     res.json(pet);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -181,7 +172,6 @@ app.delete('/api/pets/:id/reminders/:rid', auth, async (req, res) => {
     pet.reminders = pet.reminders.filter(r => r._id.toString() !== req.params.rid);
     await pet.save();
     await Reminder.deleteOne({ _id: req.params.rid });
-    await Reminder.deleteOne({ petId: req.params.id, label: req.body.label });
     res.json(pet);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -190,9 +180,31 @@ app.put('/api/reminders/:rid/toggle', auth, async (req, res) => {
   try {
     const r = await Reminder.findOne({ _id: req.params.rid, userId: req.user.id });
     if (!r) return res.status(404).json({ error: 'Reminder not found' });
-    r.enabled = !r.enabled;
-    await r.save();
-    res.json(r);
+    r.enabled = !r.enabled; await r.save(); res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── CRON via API (call this endpoint from external cron service) ──────────────
+app.get('/api/cron/reminders', async (req, res) => {
+  const secret = req.headers['x-cron-secret'];
+  if (secret !== process.env.CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  const now  = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const day  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()];
+  let fired  = 0;
+  try {
+    const reminders = await Reminder.find({ enabled: true, time });
+    for (const r of reminders) {
+      if (!r.days?.includes(day)) continue;
+      const user = await User.findById(r.userId);
+      if (!user) continue;
+      sendEmail(user.email, `⏰ ${r.label} — ${r.petName}`,
+        `<div style="font-family:sans-serif;padding:24px;background:#f0f4ff;border-radius:12px"><h2 style="color:#6366f1">⏰ ${r.label}</h2><p>Time to take care of <b>${r.petName}</b>!</p></div>`);
+      sendSMS(user.phone, `🐾 PawCare Reminder for ${r.petName}: "${r.label}" at ${r.time}`);
+      await Reminder.updateOne({ _id: r._id }, { lastFired: new Date() });
+      fired++;
+    }
+    res.json({ success: true, fired, time, day });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -201,32 +213,20 @@ app.post('/api/notify/test', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ message: 'Test notification sent to your email & phone!' });
-    sendEmail(user.email, '🔔 PawCare Test Notification', `<div style="font-family:sans-serif;padding:24px;background:#fff8f0;border-radius:12px"><h3 style="color:#6366f1">✅ Notifications working!</h3><p>Hi ${user.name}, your PawCare reminders will be sent at the scheduled times.</p></div>`);
-    sendSMS(user.phone, `🐾 PawCare: Hi ${user.name}! Your notifications are working perfectly.`);
+    res.json({ message: 'Test notification sent!' });
+    sendEmail(user.email, '🔔 PawCare Test Notification',
+      `<div style="font-family:sans-serif;padding:24px;background:#f0f4ff;border-radius:12px"><h3 style="color:#6366f1">✅ Notifications working!</h3><p>Hi ${user.name}!</p></div>`);
+    sendSMS(user.phone, `🐾 PawCare: Hi ${user.name}! Notifications are working!`);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── CRON: Fire reminders every minute ────────────────────────────────────────
-cron.schedule('* * * * *', async () => {
-  const now  = new Date();
-  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const day  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()];
-  try {
-    const reminders = await Reminder.find({ enabled: true, time });
-    for (const r of reminders) {
-      if (!r.days?.includes(day)) continue;
-      const user = await User.findById(r.userId);
-      if (!user) continue;
-      const msg = `🐾 PawCare Reminder for ${r.petName}: "${r.label}" at ${r.time}`;
-      sendEmail(user.email, `⏰ ${r.label} — ${r.petName}`, `<div style="font-family:sans-serif;padding:24px;background:#fff8f0;border-radius:12px"><h2 style="color:#6366f1">⏰ ${r.label}</h2><p>Time to take care of <b>${r.petName}</b> (${r.petType})!</p><p style="color:#888">Scheduled: ${r.time} every ${r.days.join(', ')}</p></div>`);
-      sendSMS(user.phone, msg);
-      await Reminder.updateOne({ _id: r._id }, { lastFired: new Date() });
-      console.log(`🔔 Reminder fired: ${r.petName} - ${r.label}`);
-    }
-  } catch(e) { console.log('Cron error:', e.message); }
-});
-
+// ─── Serve frontend ────────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 http://localhost:${PORT}`));
+
+// ─── Start server (local only — Vercel uses module.exports) ───────────────────
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`🚀 http://localhost:${PORT}`));
+}
+
+module.exports = app;
