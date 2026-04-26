@@ -10,7 +10,8 @@ const app = express();
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
@@ -20,7 +21,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── MongoDB ───────────────────────────────────────────────────────────────────
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/virtual_pet_care')
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+})
   .then(() => console.log('✅ MongoDB connected'))
   .catch(e  => console.error('❌ MongoDB:', e.message));
 
